@@ -14,9 +14,12 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import "./styles.css";
+import { Divider } from "@mui/material";
 
 export default function App() {
   const [items, setItems] = React.useState(getLocalItems());
+  const [absentees, setAbsentees] = React.useState([]);
+
   const theDate = new Date().toLocaleDateString("en-us", {
     weekday: "long",
     year: "numeric",
@@ -57,6 +60,17 @@ export default function App() {
     setItems(shuffle(items));
   }
 
+  function handleAbsent(item) {
+    // remove the given name from the participants list
+    const newItems = items.filter((name) => name !== item);
+    setItems(newItems);
+
+    // add them to the absentees list
+    const newAbsentees = [...absentees];
+    newAbsentees.push(item);
+    setAbsentees(newAbsentees.sort());
+  }
+
   return (
     <div className="App">
       <Typography variant="h3" className="heading">
@@ -65,7 +79,7 @@ export default function App() {
       <Typography variant="subtitle1" className="heading">
         {theDate}
       </Typography>
-      <ParticipantsAccordian onGenerateList={setItems} />
+      <ParticipantsAccordian expanded={true} onGenerateList={setItems} />
       <div className="items-container">
         <Button
           type="button"
@@ -75,14 +89,24 @@ export default function App() {
         >
           Shuffle
         </Button>
-        <ValuesList items={items} />
+        <ValuesList items={items} onHandleAbsent={handleAbsent} />
+      </div>
+      <div className="items-container">
+        <Divider />
+        <Typography variant="subtitle1">Absent Today</Typography>
+        <ValuesList
+          items={absentees}
+          showCheckboxes={false}
+          showAbsentButton={false}
+        />
       </div>
     </div>
   );
 }
 
-function ParticipantsAccordian({ onGenerateList }) {
+function ParticipantsAccordian({ expanded, onGenerateList }) {
   const [itemsText, setItemsText] = React.useState(getLocalItemsText());
+  const [isExpanded, setIsExpanded] = React.useState(expanded);
 
   React.useEffect(() => {
     localStorage.setItem("itemsText", itemsText);
@@ -109,6 +133,7 @@ function ParticipantsAccordian({ onGenerateList }) {
       : [];
     onGenerateList(itemsAry.sort());
     setItemsText(rawValues);
+    setIsExpanded(false);
   }
 
   function handleReset() {
@@ -122,8 +147,12 @@ function ParticipantsAccordian({ onGenerateList }) {
     }
   }
 
+  function handleChange() {
+    setIsExpanded(!isExpanded);
+  }
+
   return (
-    <Accordion>
+    <Accordion expanded={isExpanded} onChange={handleChange}>
       <AccordionSummary
         expandIcon={<ExpandMoreIcon />}
         aria-controls="participants-content"
@@ -132,19 +161,12 @@ function ParticipantsAccordian({ onGenerateList }) {
         <Typography variant="subtitle1">Participants</Typography>
       </AccordionSummary>
       <AccordionDetails>
-        {/* <Typography variant="body2">
-          Participants
-        </Typography> */}
-
         <form id="standupForm" onSubmit={handleSubmit}>
-          {/* <label htmlFor="valuesInput">
-        Enter participant names, one per line:
-      </label> */}
           <div>
             <TextField
               id="valuesInput"
               placeholder="Enter participant names, one per line"
-              helperText="Will be saved in your browser's local storage, so you'll have it the next time you visit this page"
+              helperText="This is saved in your browser's local storage, so you'll have it the next time you visit this page"
               value={itemsText}
               onChange={handleItemsTextChange}
               minRows={5}
@@ -167,7 +189,37 @@ function ParticipantsAccordian({ onGenerateList }) {
   );
 }
 
-function ValuesList({ items }) {
+function ValuesList({
+  items,
+  onHandleAbsent,
+  showCheckboxes = true,
+  showAbsentButton = true
+}) {
+  function handleAbsentClick(item) {
+    onHandleAbsent(item);
+  }
+
+  function renderCheckbox(item) {
+    const content = showCheckboxes ? (
+      <FormControlLabel control={<Checkbox />} label={item} />
+    ) : (
+      <Typography>{item}</Typography>
+    );
+    return <div className="item-name">{content}</div>;
+  }
+
+  function renderAbsentButton(item) {
+    return showAbsentButton ? (
+      <Button
+        value={item}
+        variant="text"
+        onClick={(event) => handleAbsentClick(event.target.value)}
+      >
+        absent
+      </Button>
+    ) : null;
+  }
+
   return (
     <div className="items-list">
       <div className="item-name">
@@ -179,10 +231,9 @@ function ValuesList({ items }) {
       <FormGroup>
         {items.map((item) => (
           <div key={item} className="item-row">
-            <div className="item-name">
-              <FormControlLabel control={<Checkbox />} label={item} />
-            </div>
+            {renderCheckbox(item)}
             <TextField variant="outlined" size="small" fullWidth />
+            {renderAbsentButton(item)}
           </div>
         ))}
       </FormGroup>
